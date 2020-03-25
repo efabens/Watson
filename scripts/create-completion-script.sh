@@ -20,7 +20,7 @@ EOF
 if [[ $# -ne 1 ]]
 then
   echo "Please provide exactly one input argument." >&2
-  exit 1
+  exit 0
 fi
 
 case $1 in
@@ -38,7 +38,7 @@ case $1 in
     ;;
   *)
     echo "Unknown argument '$1'. Please consult help text." >&2
-    exit 1
+    exit 0
 esac
 
 _WATSON_COMPLETE=$src_command watson > "$target_file" || true

@@ -107,6 +107,13 @@ def test_add_invalid_date(runner, watson, test_dt):
                            obj=watson)
     assert result.exit_code != 0
 
+@pytest.mark.parametrize('test_dt,expected', VALID_DATES_DATA)
+def test_add_with_no_to(runner, watson, test_dt, expected):
+    result = runner.invoke(
+        cli.add,
+        ['-f', test_dt, 'project-name'],
+        obj=watson)
+    assert result.exit_code == 0
 
 # watson aggregate
 

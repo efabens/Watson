@@ -1132,7 +1132,7 @@ def frames(watson):
                 autocompletion=get_project_or_task_completion)
 @click.option('-f', '--from', 'from_', required=True, type=DateTime,
               help="Date and time of start of tracked activity")
-@click.option('-t', '--to', required=True, type=DateTime,
+@click.option('-t', '--to', required=False, type=DateTime, default=datetime.datetime.today(),
               help="Date and time of end of tracked activity")
 @click.option('-c', '--confirm-new-project', is_flag=True, default=False,
               help="Confirm addition of new project.")
