@@ -76,6 +76,11 @@ def style(name, element):
     def _style_short_id(id):
         return style('id', id[:7])
 
+    def _style_note(note):
+        if not note:
+            return ''
+        return style('note', note)
+
     formats = {
         'project': {'fg': 'magenta'},
         'tags': _style_tags,
@@ -84,7 +89,9 @@ def style(name, element):
         'error': {'fg': 'red'},
         'date': {'fg': 'cyan'},
         'short_id': _style_short_id,
-        'id': {'fg': 'white'}
+        'id': {'fg': 'white'},
+        'notes': _style_note,
+        'note': {'fg': 'yellow'}
     }
 
     fmt = formats.get(name, {})

@@ -246,9 +246,10 @@ def start(ctx, watson, confirm_new_project, confirm_new_tag, args, gap_=True):
 @click.option('--at', 'at_', type=DateTime, default=None,
               help=('Stop frame at this time. Must be in '
                     '(YYYY-MM-DDT)?HH:MM(:SS)? format.'))
+@click.option("--note", 'note_', type=str, default=None, help=("Adds a note to the frame."))
 @click.pass_obj
 @catch_watson_error
-def stop(watson, at_):
+def stop(watson, at_, note_):
     """
     Stop monitoring time for the current project.
 
@@ -262,7 +263,7 @@ def stop(watson, at_):
     $ watson stop --at 13:37
     Stopping project apollo11, started an hour ago and stopped 30 minutes ago. (id: e9ccd52) # noqa: E501
     """
-    frame = watson.stop(stop_at=at_)
+    frame = watson.stop(stop_at=at_, note=note_)
     output_str = u"Stopping project {}{}, started {} and stopped {}. (id: {})"
     click.echo(output_str.format(
         style('project', frame.project),
@@ -1042,7 +1043,7 @@ def log(watson, current, from_, to, projects, tags, year, month, week, day,
         )
 
         _print("\n".join(
-            u"\t{id}  {start} to {stop}  {delta:>11}  {project}{tags}".format(
+            u"\t{id}  {start} to {stop}  {delta:>11}  {project}{tags}{note}".format(
                 delta=format_timedelta(frame.stop - frame.start),
                 project=style('project', u'{:>{}}'.format(
                     frame.project, longest_project
@@ -1051,7 +1052,8 @@ def log(watson, current, from_, to, projects, tags, year, month, week, day,
                 tags=(" "*2 if frame.tags else "") + style('tags', frame.tags),
                 start=style('time', '{:HH:mm}'.format(frame.start)),
                 stop=style('time', '{:HH:mm}'.format(frame.stop)),
-                id=style('short_id', frame.id)
+                id=style('short_id', frame.id),
+                note=(" "*2 if frame.note else "") + style('notes', frame.note)
             )
             for frame in frames
         ))
@@ -1134,13 +1136,14 @@ def frames(watson):
               help="Date and time of start of tracked activity")
 @click.option('-t', '--to', required=False, type=DateTime, default=datetime.datetime.today(),
               help="Date and time of end of tracked activity")
+@click.option("--note", 'note_', type=str, default=None, help=("Adds a note to the frame."))
 @click.option('-c', '--confirm-new-project', is_flag=True, default=False,
               help="Confirm addition of new project.")
 @click.option('-b', '--confirm-new-tag', is_flag=True, default=False,
               help="Confirm creation of new tag.")
 @click.pass_obj
 @catch_watson_error
-def add(watson, args, from_, to, confirm_new_project, confirm_new_tag):
+def add(watson, args, from_, to, confirm_new_project, confirm_new_tag, note_):
     """
     Add time to a project with tag(s) that was not tracked live.
 
@@ -1171,7 +1174,7 @@ def add(watson, args, from_, to, confirm_new_project, confirm_new_tag):
         confirm_tags(tags, watson.tags)
 
     # add a new frame, call watson save to update state files
-    frame = watson.add(project=project, tags=tags, from_date=from_, to_date=to)
+    frame = watson.add(project=project, tags=tags, from_date=from_, to_date=to, note=note_)
     click.echo(
         u"Adding project {}{}, started {} and stopped {}. (id: {})".format(
             style('project', frame.project),
@@ -1230,10 +1233,12 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
         'start': frame.start.format(datetime_format),
         'project': frame.project,
         'tags': frame.tags,
+        'note': frame.note,
     }
 
     if id:
         data['stop'] = frame.stop.format(datetime_format)
+
 
     text = json.dumps(data, indent=4, sort_keys=True, ensure_ascii=False)
 

@@ -239,7 +239,7 @@ class Watson(object):
     def is_started(self):
         return bool(self.current)
 
-    def add(self, project, from_date, to_date, tags):
+    def add(self, project, from_date, to_date, tags, note=None):
         if not project:
             raise WatsonError("No project given.")
         if from_date > to_date:
@@ -248,7 +248,7 @@ class Watson(object):
         default_tags = self.config.getlist('default_tags', project)
         tags = (tags or []) + default_tags
 
-        frame = self.frames.add(project, from_date, to_date, tags=tags)
+        frame = self.frames.add(project, from_date, to_date, tags=tags, note=note)
         return frame
 
     def start(self, project, tags=None, restart=False, gap=True):
@@ -270,7 +270,7 @@ class Watson(object):
         self.current = new_frame
         return self.current
 
-    def stop(self, stop_at=None):
+    def stop(self, stop_at=None, note=None):
         if not self.is_started:
             raise WatsonError("No project started.")
 
@@ -289,7 +289,7 @@ class Watson(object):
             raise WatsonError('Task cannot end in the future.')
 
         frame = self.frames.add(
-            old['project'], old['start'], stop_at, tags=old['tags']
+            old['project'], old['start'], stop_at, tags=old['tags'], note=note
         )
         self.current = None
 
