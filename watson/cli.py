@@ -1256,6 +1256,7 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
 
         try:
             data = json.loads(output)
+            note = data['note']
             project = data['project']
             # Confirm creation of new project if that option is set
             if (watson.config.getboolean('options', 'confirm_new_project') or
@@ -1295,9 +1296,10 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
 
     # we reach this when we break out of the while loop above
     if id:
-        watson.frames[id] = (project, start, stop, tags)
+        values = (project, start, stop, tags, None, None, note)
+        watson.frames[id] = values
     else:
-        watson.current = dict(start=start, project=project, tags=tags)
+        watson.current = dict(start=start, project=project, tags=tags, note=note)
 
     watson.save()
     click.echo(
