@@ -9,16 +9,10 @@ import pytest
 import requests
 
 from watson import Watson, WatsonError
+from watson.frames import Frame
 from watson.watson import ConfigParser, ConfigurationError
-from watson.utils import PY2
 
 from . import mock_read, TEST_FIXTURE_DIR
-
-
-if not PY2:
-    builtins = 'builtins'
-else:
-    builtins = '__builtin__'
 
 
 @pytest.fixture
@@ -36,27 +30,27 @@ def json_mock(mocker):
 def test_current(mocker, watson):
     content = json.dumps({'project': 'foo', 'start': 4000, 'tags': ['A', 'B']})
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert watson.current['project'] == 'foo'
     assert watson.current['start'] == arrow.get(4000)
     assert watson.current['tags'] == ['A', 'B']
 
 
 def test_current_with_empty_file(mocker, watson):
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=""))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=""))
     mocker.patch('os.path.getsize', return_value=0)
     assert watson.current == {}
 
 
 def test_current_with_nonexistent_file(mocker, watson):
-    mocker.patch('%s.open' % builtins, side_effect=IOError)
+    mocker.patch('builtins.open', side_effect=IOError)
     assert watson.current == {}
 
 
 def test_current_watson_non_valid_json(mocker, watson):
     content = "{'foo': bar}"
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     mocker.patch('os.path.getsize', return_value=len(content))
     with pytest.raises(WatsonError):
         watson.current
@@ -67,7 +61,7 @@ def test_current_with_given_state(config_dir, mocker):
     watson = Watson(current={'project': 'bar', 'start': 4000},
                     config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert watson.current['project'] == 'bar'
 
 
@@ -75,35 +69,50 @@ def test_current_with_empty_given_state(config_dir, mocker):
     content = json.dumps({'project': 'foo', 'start': 4000})
     watson = Watson(current=[], config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert watson.current == {}
+
+
+def test_current_as_running_frame(watson):
+    """
+    Ensures frame can be created without a stop date.
+    Catches #417: editing task in progress throws an exception
+    """
+    watson.start('foo', tags=['A', 'B'])
+
+    cur = watson.current
+    frame = Frame(cur['start'], None, cur['project'], None, cur['tags'])
+
+    assert frame.stop is None
+    assert frame.project == 'foo'
+    assert frame.tags == ['A', 'B']
 
 
 # last_sync
 
 def test_last_sync(mocker, watson):
     now = arrow.get(4123)
-    content = json.dumps(now.timestamp)
+    content = json.dumps(now.int_timestamp)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert watson.last_sync == now
 
 
 def test_last_sync_with_empty_file(mocker, watson):
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=""))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=""))
     mocker.patch('os.path.getsize', return_value=0)
     assert watson.last_sync == arrow.get(0)
 
 
 def test_last_sync_with_nonexistent_file(mocker, watson):
-    mocker.patch('%s.open' % builtins, side_effect=IOError)
+    mocker.patch('builtins.open', side_effect=IOError)
     assert watson.last_sync == arrow.get(0)
 
 
 def test_last_sync_watson_non_valid_json(mocker, watson):
     content = "{'foo': bar}"
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     mocker.patch('os.path.getsize', return_value=len(content))
     with pytest.raises(WatsonError):
         watson.last_sync
@@ -114,7 +123,7 @@ def test_last_sync_with_given_state(config_dir, mocker):
     now = arrow.now()
     watson = Watson(last_sync=now, config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert watson.last_sync == now
 
 
@@ -122,7 +131,7 @@ def test_last_sync_with_empty_given_state(config_dir, mocker):
     content = json.dumps(123)
     watson = Watson(last_sync=None, config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert watson.last_sync == arrow.get(0)
 
 
@@ -131,7 +140,7 @@ def test_last_sync_with_empty_given_state(config_dir, mocker):
 def test_frames(mocker, watson):
     content = json.dumps([[4000, 4010, 'foo', None, ['A', 'B', 'C']]])
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert len(watson.frames) == 1
     assert watson.frames[0].project == 'foo'
     assert watson.frames[0].start == arrow.get(4000)
@@ -142,7 +151,7 @@ def test_frames(mocker, watson):
 def test_frames_without_tags(mocker, watson):
     content = json.dumps([[4000, 4010, 'foo', None]])
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert len(watson.frames) == 1
     assert watson.frames[0].project == 'foo'
     assert watson.frames[0].start == arrow.get(4000)
@@ -151,20 +160,20 @@ def test_frames_without_tags(mocker, watson):
 
 
 def test_frames_with_empty_file(mocker, watson):
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=""))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=""))
     mocker.patch('os.path.getsize', return_value=0)
     assert len(watson.frames) == 0
 
 
 def test_frames_with_nonexistent_file(mocker, watson):
-    mocker.patch('%s.open' % builtins, side_effect=IOError)
+    mocker.patch('builtins.open', side_effect=IOError)
     assert len(watson.frames) == 0
 
 
 def test_frames_watson_non_valid_json(mocker, watson):
     content = "{'foo': bar}"
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     mocker.patch('os.path.getsize', return_value=len(content))
     with pytest.raises(WatsonError):
         watson.frames
@@ -175,7 +184,7 @@ def test_given_frames(config_dir, mocker):
     watson = Watson(frames=[[4000, 4010, 'bar', None, ['A', 'B']]],
                     config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert len(watson.frames) == 1
     assert watson.frames[0].project == 'bar'
     assert watson.frames[0].tags == ['A', 'B']
@@ -185,7 +194,7 @@ def test_frames_with_empty_given_state(config_dir, mocker):
     content = json.dumps([[0, 10, 'foo', None, ['A']]])
     watson = Watson(frames=[], config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     assert len(watson.frames) == 0
 
 
@@ -197,7 +206,7 @@ def test_empty_config_dir():
 
 
 def test_wrong_config(mocker, watson):
-    content = u"""
+    content = """
 toto
     """
     mocker.patch.object(ConfigParser, 'read', mock_read(content))
@@ -206,7 +215,7 @@ toto
 
 
 def test_empty_config(mocker, watson):
-    mocker.patch.object(ConfigParser, 'read', mock_read(u''))
+    mocker.patch.object(ConfigParser, 'read', mock_read(''))
     assert len(watson.config.sections()) == 0
 
 
@@ -244,7 +253,7 @@ def test_start_two_projects(watson):
 
 
 def test_start_default_tags(mocker, watson):
-    content = u"""
+    content = """
 [default_tags]
 my project = A B
     """
@@ -255,7 +264,7 @@ my project = A B
 
 
 def test_start_default_tags_with_supplementary_input_tags(mocker, watson):
-    content = u"""
+    content = """
 [default_tags]
 my project = A B
     """
@@ -272,6 +281,26 @@ def test_start_nogap(watson):
     watson.start('bar', gap=False)
 
     assert watson.frames[-1].stop == watson.current['start']
+
+
+def test_start_project_at(watson):
+    now = arrow.now()
+    watson.start('foo', start_at=now)
+    watson.stop()
+
+    # Task can't start before the previous task ends
+    with pytest.raises(WatsonError):
+        time_str = '1970-01-01T00:00'
+        time_obj = arrow.get(time_str)
+        watson.start('foo', start_at=time_obj)
+
+    # Task can't start in the future
+    with pytest.raises(WatsonError):
+        time_str = '2999-12-31T23:59'
+        time_obj = arrow.get(time_str)
+        watson.start('foo', start_at=time_obj)
+
+    assert watson.frames[-1].start == now
 
 
 # stop
@@ -311,13 +340,15 @@ def test_stop_started_project_at(watson):
     watson.start('foo')
     now = arrow.now()
 
+    # Task can't end before it starts
     with pytest.raises(WatsonError):
         time_str = '1970-01-01T00:00'
         time_obj = arrow.get(time_str)
         watson.stop(stop_at=time_obj)
 
-    with pytest.raises(ValueError):
-        time_str = '2999-31-12T23:59'
+    # Task can't end in the future
+    with pytest.raises(WatsonError):
+        time_str = '2999-12-31T23:59'
         time_obj = arrow.get(time_str)
         watson.stop(stop_at=time_obj)
 
@@ -343,7 +374,7 @@ def test_cancel_no_project(watson):
 # save
 
 def test_save_without_changes(mocker, watson, json_mock):
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert not json_mock.called
@@ -352,7 +383,7 @@ def test_save_without_changes(mocker, watson, json_mock):
 def test_save_current(mocker, watson, json_mock):
     watson.start('foo', ['A', 'B'])
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -365,7 +396,7 @@ def test_save_current(mocker, watson, json_mock):
 def test_save_current_without_tags(mocker, watson, json_mock):
     watson.start('foo')
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -381,7 +412,7 @@ def test_save_current_without_tags(mocker, watson, json_mock):
 def test_save_empty_current(config_dir, mocker, json_mock):
     watson = Watson(current={}, config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
 
     watson.current = {'project': 'foo', 'start': 4000}
     watson.save()
@@ -402,7 +433,7 @@ def test_save_frames_no_change(config_dir, mocker, json_mock):
     watson = Watson(frames=[[4000, 4010, 'foo', None]],
                     config_dir=config_dir)
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert not json_mock.called
@@ -412,7 +443,7 @@ def test_save_added_frame(config_dir, mocker, json_mock):
     watson = Watson(frames=[[4000, 4010, 'foo', None]], config_dir=config_dir)
     watson.frames.add('bar', 4010, 4020, ['A'])
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -429,7 +460,7 @@ def test_save_changed_frame(config_dir, mocker, json_mock):
                     config_dir=config_dir)
     watson.frames[0] = ('bar', 4000, 4010, ['A', 'B'])
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -443,7 +474,7 @@ def test_save_changed_frame(config_dir, mocker, json_mock):
 
 
 def test_save_config_no_changes(mocker, watson):
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     write_mock = mocker.patch.object(ConfigParser, 'write')
     watson.save()
 
@@ -451,7 +482,7 @@ def test_save_config_no_changes(mocker, watson):
 
 
 def test_save_config(mocker, watson):
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     write_mock = mocker.patch.object(ConfigParser, 'write')
     watson.config = ConfigParser()
     watson.save()
@@ -463,18 +494,18 @@ def test_save_last_sync(mocker, watson, json_mock):
     now = arrow.now()
     watson.last_sync = now
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
-    assert json_mock.call_args[0][0] == now.timestamp
+    assert json_mock.call_args[0][0] == now.int_timestamp
 
 
 def test_save_empty_last_sync(config_dir, mocker, json_mock):
     watson = Watson(last_sync=arrow.now(), config_dir=config_dir)
     watson.last_sync = None
 
-    mocker.patch('%s.open' % builtins, mocker.mock_open())
+    mocker.patch('builtins.open', mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -635,14 +666,14 @@ def test_pull(mocker, watson):
                 {
                     'id': '1c006c6e-6cc1-4c80-ab22-b51c857c0b06',
                     'project': 'foo',
-                    'start_at': 4003,
+                    'begin_at': 4003,
                     'end_at': 4004,
                     'tags': ['A']
                 },
                 {
                     'id': 'c44aa815-4d77-4a58-bddd-1afa95562141',
                     'project': 'bar',
-                    'start_at': 4004,
+                    'begin_at': 4004,
                     'end_at': 4005,
                     'tags': []
                 }
@@ -667,14 +698,14 @@ def test_pull(mocker, watson):
 
     assert watson.frames[0].id == '1c006c6e6cc14c80ab22b51c857c0b06'
     assert watson.frames[0].project == 'foo'
-    assert watson.frames[0].start.timestamp == 4003
-    assert watson.frames[0].stop.timestamp == 4004
+    assert watson.frames[0].start.int_timestamp == 4003
+    assert watson.frames[0].stop.int_timestamp == 4004
     assert watson.frames[0].tags == ['A']
 
     assert watson.frames[1].id == 'c44aa8154d774a58bddd1afa95562141'
     assert watson.frames[1].project == 'bar'
-    assert watson.frames[1].start.timestamp == 4004
-    assert watson.frames[1].stop.timestamp == 4005
+    assert watson.frames[1].start.int_timestamp == 4004
+    assert watson.frames[1].stop.int_timestamp == 4005
     assert watson.frames[1].tags == []
 
 
@@ -844,7 +875,7 @@ def test_report_include_partial_frames(mocker, watson, date_as_unixtime,
         ["cli"],
         1548797432
     ]])
-    mocker.patch('%s.open' % builtins, mocker.mock_open(read_data=content))
+    mocker.patch('builtins.open', mocker.mock_open(read_data=content))
     date = arrow.get(date_as_unixtime)
     report = watson.report(
         from_=date, to=date, include_partial_frames=include_partial,
@@ -873,18 +904,18 @@ def test_rename_project_with_time(watson):
 
     assert watson.frames[0].id == 'c76d1ad0282c429595cc566d7098c165'
     assert watson.frames[0].project == 'baz'
-    assert watson.frames[0].start.timestamp == 4001
-    assert watson.frames[0].stop.timestamp == 4002
+    assert watson.frames[0].start.int_timestamp == 4001
+    assert watson.frames[0].stop.int_timestamp == 4002
     assert watson.frames[0].tags == ['some_tag']
-    # assert watson.frames[0].updated_at.timestamp == 9000
-    assert watson.frames[0].updated_at.timestamp > 4005
+    # assert watson.frames[0].updated_at.int_timestamp == 9000
+    assert watson.frames[0].updated_at.int_timestamp > 4005
 
     assert watson.frames[1].id == 'eed598ff363d42658a095ae6c3ae1088'
     assert watson.frames[1].project == 'bar'
-    assert watson.frames[1].start.timestamp == 4010
-    assert watson.frames[1].stop.timestamp == 4015
+    assert watson.frames[1].start.int_timestamp == 4010
+    assert watson.frames[1].stop.int_timestamp == 4015
     assert watson.frames[1].tags == ['other_tag']
-    assert watson.frames[1].updated_at.timestamp == 4035
+    assert watson.frames[1].updated_at.int_timestamp == 4035
 
 
 def test_rename_tag_with_time(watson):
@@ -907,18 +938,18 @@ def test_rename_tag_with_time(watson):
 
     assert watson.frames[0].id == 'c76d1ad0282c429595cc566d7098c165'
     assert watson.frames[0].project == 'foo'
-    assert watson.frames[0].start.timestamp == 4001
-    assert watson.frames[0].stop.timestamp == 4002
+    assert watson.frames[0].start.int_timestamp == 4001
+    assert watson.frames[0].stop.int_timestamp == 4002
     assert watson.frames[0].tags == ['some_tag']
-    assert watson.frames[0].updated_at.timestamp == 4005
+    assert watson.frames[0].updated_at.int_timestamp == 4005
 
     assert watson.frames[1].id == 'eed598ff363d42658a095ae6c3ae1088'
     assert watson.frames[1].project == 'bar'
-    assert watson.frames[1].start.timestamp == 4010
-    assert watson.frames[1].stop.timestamp == 4015
+    assert watson.frames[1].start.int_timestamp == 4010
+    assert watson.frames[1].stop.int_timestamp == 4015
     assert watson.frames[1].tags == ['baz']
-    # assert watson.frames[1].updated_at.timestamp == 9000
-    assert watson.frames[1].updated_at.timestamp > 4035
+    # assert watson.frames[1].updated_at.int_timestamp == 9000
+    assert watson.frames[1].updated_at.int_timestamp > 4035
 
 # add
 
